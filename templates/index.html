@@ -112,19 +112,26 @@
 
 			// For larger counts, find best column count for balanced rows
 			// Logic: prefer 4-6 columns, ensure last row has at least col-2 items
+			// Also ensure we don't exceed 4 rows
+
+			// First calculate min columns needed to fit in 4 rows
+			const minColsForRows = Math.ceil(count / 4);
+			const startCols = Math.max(4, minColsForRows);
 
 			// First check for perfect divisors (prefer smaller for more rows)
-			const preferredCols = [4, 5, 6, 3, 7];
+			const preferredCols = [startCols, startCols + 1, startCols + 2, startCols + 3, startCols + 4];
 			for (const cols of preferredCols) {
 				if (count % cols === 0) return cols;
 			}
 
 			// For ugly numbers, find columns where last row is nearly full
 			// Last row should have at least (cols - 2) items
-			let bestCols = 4;
+			let bestCols = startCols;
 			let bestScore = -1;
 
-			for (let cols = 4; cols <= 7; cols++) {
+			// Search range: from minimum needed (for 4 rows) up to +3 more columns
+			// We only want to increase columns if it makes the grid "nicer" (less empty space)
+			for (let cols = startCols; cols <= startCols + 4; cols++) {
 				const remainder = count % cols;
 				if (remainder === 0) {
 					return cols; // Perfect fit
@@ -137,11 +144,7 @@
 				}
 			}
 
-			// Examples of results:
-			// 11: 4 cols → 4,4,3 (remainder 3, >= 4-2=2) ✓
-			// 13: 5 cols → 5,5,3 (remainder 3, >= 5-2=3) ✓
-			// 17: 6 cols → 6,6,5 (remainder 5, >= 6-2=4) ✓
-
+			// If no "nice" layout found, just defaults to startCols or best found
 			return bestCols;
 		}
 
@@ -188,6 +191,33 @@
 				container.querySelector('.prev').disabled = true;
 				container.querySelector('.next').disabled = (totalPages <= 1);
 			});
+		});
+	</script>
+
+	<script>
+		// Keyboard navigation for tabs
+		document.addEventListener('keydown', function (e) {
+			// Ignore if user is typing in search box
+			if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') {
+				return;
+			}
+
+			const tabs = Array.from(document.querySelectorAll('.nav-link:not(.admin-link)'));
+			const activeTab = document.querySelector('.nav-link.active');
+
+			if (!tabs.length || !activeTab) return;
+
+			const currentIndex = tabs.indexOf(activeTab);
+
+			if (e.key === 'ArrowLeft') {
+				if (currentIndex > 0) {
+					tabs[currentIndex - 1].click();
+				}
+			} else if (e.key === 'ArrowRight') {
+				if (currentIndex < tabs.length - 1) {
+					tabs[currentIndex + 1].click();
+				}
+			}
 		});
 	</script>
 
