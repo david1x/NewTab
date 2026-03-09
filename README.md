@@ -6,12 +6,12 @@ A modern, customizable homepage manager with flip-card navigation and dynamic pa
 
 ## Features
 
-- 🎴 **Flip Cards** - Beautiful flip-card interface for quick navigation
+- 🎴 **Modern Flip Cards** - Premium glassmorphism interface with integrated tool labels
 - 📑 **Dynamic Pages** - Create custom pages and assign cards to multiple pages
-- 🔍 **Configurable Search** - Enable/disable search bar with custom search URL
+- 🔍 **Unified Search** - Sleek, single-pill search bar for a cleaner aesthetic
 - 🎨 **Customizable Cards** - Set custom images, colors, and multiple links per card
-- 📱 **Responsive Layout** - Automatically balances card grid for optimal display
-- ⚡ **Pagination** - Smart pagination for cards with many links
+- 📱 **Centered Responsive Layout** - Advanced CSS Grid with centered flex balancing for perfectly aligned rows
+- ⚡ **Smart Pagination** - Smooth link pagination for cards with many URLs
 
 ## Included Presets
 

@@ -6,9 +6,54 @@
 
 	<title>{{ current_page.name }} - NewTab</title>
 	<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+	<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js"></script>
 </head>
 
 <body>
+	<script>
+		// Init dark mode ASAP to prevent flash
+		const isDark = localStorage.getItem('darkMode') === 'true';
+		if (isDark) document.body.classList.add('dark-mode');
+
+		function updateTicker(isDark) {
+			const container = document.getElementById('ticker-container');
+			if (!container) return;
+			// Clear and recreate script to force re-render with new theme
+			container.innerHTML = '<div class="tradingview-widget-container__widget"></div>';
+			const script = document.createElement('script');
+			script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-ticker-tape.js';
+			script.async = true;
+
+			const symbolsStr = document.getElementById('ticker-symbols-data').value;
+			const symbolsList = symbolsStr.split(',').map(s => s.trim()).filter(s => s);
+			const formattedSymbols = symbolsList.map(s => ({ "proName": s, "title": s }));
+
+			script.innerHTML = JSON.stringify({
+				"symbols": formattedSymbols,
+				"showSymbolLogo": true,
+				"isTransparent": false,
+				"displayMode": "adaptive",
+				"colorTheme": isDark ? "dark" : "light",
+				"locale": "en"
+			});
+			container.appendChild(script);
+		}
+
+		function updateDarkIcon(dark) {
+			const icon = document.getElementById('darkToggleIcon');
+			if (!icon) return;
+			if (dark) {
+				icon.innerHTML = '<circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>';
+			} else {
+				icon.innerHTML = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>';
+			}
+			updateTicker(dark);
+		}
+
+		document.addEventListener("DOMContentLoaded", () => {
+			updateDarkIcon(isDark);
+		});
+	</script>
 
 	<nav class="navbar">
 		<div class="nav-links">
@@ -18,13 +63,24 @@
 			{% endfor %}
 			<a href="{{ url_for('admin') }}" class="nav-link admin-link">Admin</a>
 		</div>
+		<button class="dark-toggle" id="darkToggle" onclick="toggleDarkMode()" title="Toggle dark mode">
+			<svg id="darkToggleIcon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+				stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></svg>
+		</button>
+		<a href="#" class="edit-toggle" id="editToggle" onclick="toggleEditMode(event)" title="Toggle edit mode">
+			<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+				<path
+					d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207 11.207 2.5zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293l6.5-6.5zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325z" />
+			</svg>
+		</a>
 	</nav>
 
 	{% if settings.search_enabled %}
 	<div class="search-container">
-		<button id="searchButton" class="search-button">Search</button>
-		<input type="text" id="searchinput" class="search-box" placeholder="{{ settings.search_placeholder }}"
-			style="width: {{ settings.search_width }}px;">
+		<div class="search-wrapper">
+			<input type="text" id="searchinput" class="search-box" placeholder="{{ settings.search_placeholder }}">
+			<button id="searchButton" class="search-button">Search</button>
+		</div>
 	</div>
 
 	<script>
@@ -44,35 +100,64 @@
 	{% endif %}
 
 	{% set item_count = systems|length %}
-	<div class="grid-container" id="gridContainer" data-count="{{ item_count }}">
+	{% set cpr = settings.cards_per_row|default(0)|int %}
+	<div class="grid-container" id="gridContainer" data-count="{{ item_count }}" {% if cpr> 0 %}style="max-width: {{ cpr
+		* 240 + (cpr - 1) * 12 }}px;"{% endif %}>
 		{% for system in systems %}
 		{% set one_link = system.links|length == 1 %}
 		{% set many_links = system.links|length > 4 %}
 		{% set main_link = system.links[0].url if one_link else '#' %}
 
-		<div {% if one_link %}onclick="window.open('{{ main_link }}')" style="cursor: pointer;" {% endif %}>
+		<div class="card-wrapper" data-index="{{ system._index }}" {% if one_link
+			%}onclick="if(!document.body.classList.contains('edit-mode'))window.open('{{ main_link }}')"
+			style="cursor: pointer; --title-color-light: {{ system.get('title_text_light', '#1e293b') }}; --title-color-dark: {{ system.get('title_text_dark', '#e2e8f0') }}; --title-color: var(--title-color-light);"
+			{% else %}
+			style="--title-color-light: {{ system.get('title_text_light', '#1e293b') }}; --title-color-dark: {{ system.get('title_text_dark', '#e2e8f0') }}; --title-color: var(--title-color-light);"
+			{% endif %}>
+			<div class="card-edit-overlay">
+				<a href="{{ url_for('admin') }}?return_url={{ request.full_path | urlencode }}#edit-{{ system._index }}"
+					class="edit-overlay-btn edit-btn" title="Edit">✏️</a>
+				<button class="edit-overlay-btn delete-btn" onclick="deleteCard({{ system._index }})"
+					title="Delete">🗑️</button>
+			</div>
 			<div class="flip-card">
 				<div class="flip-card-inner">
-					<div class="flip-card-front" style="background-color: {{ system.front_color|default('#11161F') }};">
+					<div class="flip-card-front" style="background-color: {{ system.front_color|default('#ffffff') }};">
+						{% if system.tags or system.tag %}
+						<div class="tags-container tags-{{ system.tag_position|default('top-right') }}">
+							{% if system.tags is iterable and system.tags is not string %}
+							{% for tag in system.tags %}
+							<span class="tag-badge"
+								style="background: {{ system.tag_bg_color|default('#0f172a') }}; opacity: {{ system.tag_opacity|default(80) / 100 }};">{{
+								tag }}</span>
+							{% endfor %}
+							{% elif system.tag %}
+							<span class="tag-badge"
+								style="background: {{ system.tag_bg_color|default('#0f172a') }}; opacity: {{ system.tag_opacity|default(80) / 100 }};">{{
+								system.tag }}</span>
+							{% endif %}
+						</div>
+						{% endif %}
+
 						{% if system.image.startswith('presets/') or system.image == 'generic.png' %}
 						<img src="{{ url_for('static', filename=system.image if system.image.startswith('presets/') else 'generic.png') }}"
 							alt="{{ system.name }}"
-							style="{% if system.image_mode == 'fit' %}width: {{ system.image_size|default('80') }}%; height: {{ system.image_size|default('80') }}%; object-fit: contain;{% else %}width: 100%; height: 100%; object-fit: cover;{% endif %}">
+							style="{% if system.image_mode == 'fit' %}max-width: {{ system.image_size|default('80') }}%; max-height: {{ (system.image_size|default('80')|int * 0.7)|int }}%;{% endif %}">
 						{% else %}
 						<img src="{{ url_for('uploaded_file', filename=system.image) }}" alt="{{ system.name }}"
-							style="{% if system.image_mode == 'fit' %}width: {{ system.image_size|default('80') }}%; height: {{ system.image_size|default('80') }}%; object-fit: contain;{% else %}width: 100%; height: 100%; object-fit: cover;{% endif %}">
+							style="{% if system.image_mode == 'fit' %}max-width: {{ system.image_size|default('80') }}%; max-height: {{ (system.image_size|default('80')|int * 0.7)|int }}%;{% endif %}">
 						{% endif %}
-						{% if system.tags %}
-						<div class="tags-container">
-							{% for tag in system.tags %}
-							<span class="tag-badge">{{ tag }}</span>
-							{% endfor %}
-						</div>
-						{% elif system.tag %}
-						<div class="tags-container">
-							<span class="tag-badge">{{ system.tag }}</span>
-						</div>
-						{% endif %}
+
+						<div class="card-title" style="
+							color: var(--title-color);
+							{% if not system.get('title_bg_enabled', True) %}
+							background: transparent; border: none; box-shadow: none; backdrop-filter: none;
+							{% else %}
+							{% set bg_color = system.get('title_bg_color', '#ffffff') %}
+							{% set bg_opacity = system.get('title_bg_opacity', 80) %}
+							background: color-mix(in srgb, {{ bg_color }} {{ bg_opacity }}%, transparent);
+							{% endif %}
+						">{{ system.name }}</div>
 					</div>
 					<div class="flip-card-back" style="background-color: {{ system.back_color|default('#000000') }};">
 						{% if one_link %}
@@ -106,124 +191,133 @@
 	</div>
 
 	<script>
-		// Calculate optimal columns for balanced grid layout
-		function getOptimalColumns(count) {
-			if (count <= 7) return count;
-
-			// For larger counts, find best column count for balanced rows
-			// Logic: prefer 4-6 columns, ensure last row has at least col-2 items
-			// Also ensure we don't exceed 4 rows
-
-			// First calculate min columns needed to fit in 4 rows
-			const minColsForRows = Math.ceil(count / 4);
-			const startCols = Math.max(4, minColsForRows);
-
-			// First check for perfect divisors (prefer smaller for more rows)
-			const preferredCols = [startCols, startCols + 1, startCols + 2, startCols + 3, startCols + 4];
-			for (const cols of preferredCols) {
-				if (count % cols === 0) return cols;
-			}
-
-			// For ugly numbers, find columns where last row is nearly full
-			// Last row should have at least (cols - 2) items
-			let bestCols = startCols;
-			let bestScore = -1;
-
-			// Search range: from minimum needed (for 4 rows) up to +3 more columns
-			// We only want to increase columns if it makes the grid "nicer" (less empty space)
-			for (let cols = startCols; cols <= startCols + 4; cols++) {
-				const remainder = count % cols;
-				if (remainder === 0) {
-					return cols; // Perfect fit
-				}
-				// Score: how close is remainder to cols (higher is better)
-				const score = remainder;
-				if (remainder >= cols - 2 && score > bestScore) {
-					bestScore = score;
-					bestCols = cols;
-				}
-			}
-
-			// If no "nice" layout found, just defaults to startCols or best found
-			return bestCols;
+		// Dark mode
+		function toggleDarkMode() {
+			const isDark = document.body.classList.toggle('dark-mode');
+			localStorage.setItem('darkMode', isDark);
+			updateDarkIcon(isDark);
 		}
-
-		document.addEventListener('DOMContentLoaded', () => {
-			const grid = document.getElementById('gridContainer');
-			if (grid) {
-				const count = parseInt(grid.dataset.count) || 0;
-				const cols = getOptimalColumns(count);
-				grid.style.maxWidth = (cols * 200) + 'px';
-			}
-		});
-	</script>
-
-
-	<script>
+		// Pagination
 		function paginateLinks(btn, dir) {
 			const container = btn.closest('.paginated-links');
 			const links = container.querySelectorAll('.paginated-link');
 			let page = parseInt(container.dataset.page) || 0;
 			const perPage = 4;
 			const totalPages = Math.ceil(links.length / perPage);
-
 			page = Math.max(0, Math.min(totalPages - 1, page + dir));
 			container.dataset.page = page;
-
 			links.forEach((link, i) => {
-				const start = page * perPage;
-				const end = start + perPage;
-				link.classList.toggle('visible', i >= start && i < end);
+				link.classList.toggle('visible', i >= page * perPage && i < (page + 1) * perPage);
 			});
-
 			container.querySelector('.prev').disabled = (page === 0);
 			container.querySelector('.next').disabled = (page >= totalPages - 1);
 		}
 
-		// Initialize all paginated link containers
 		document.addEventListener('DOMContentLoaded', () => {
+			const urlParams = new URLSearchParams(window.location.search);
+			if (urlParams.get('edit') === '1') {
+				toggleEditMode();
+				urlParams.delete('edit');
+				const newSearch = urlParams.toString() ? '?' + urlParams.toString() : '';
+				window.history.replaceState(null, '', window.location.pathname + newSearch);
+			}
+
 			document.querySelectorAll('.paginated-links').forEach(container => {
 				const links = container.querySelectorAll('.paginated-link');
-				links.forEach((link, i) => {
-					if (i < 4) link.classList.add('visible');
-				});
-				const totalPages = Math.ceil(links.length / 4);
-				container.querySelector('.prev').disabled = true;
-				container.querySelector('.next').disabled = (totalPages <= 1);
+				links.forEach((link, i) => { if (i < 4) link.classList.add('visible'); });
+				const tp = Math.ceil(links.length / 4);
+				if (container.querySelector('.prev')) container.querySelector('.prev').disabled = true;
+				if (container.querySelector('.next')) container.querySelector('.next').disabled = (tp <= 1);
 			});
 		});
-	</script>
 
-	<script>
-		// Keyboard navigation for tabs
+		// Keyboard navigation
 		document.addEventListener('keydown', function (e) {
-			// Ignore if user is typing in search box
-			if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') {
-				return;
-			}
-
-			const tabs = Array.from(document.querySelectorAll('.nav-link:not(.admin-link)'));
+			if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
+			const tabs = Array.from(document.querySelectorAll('.nav-link:not(.admin-link):not(.edit-toggle)'));
 			const activeTab = document.querySelector('.nav-link.active');
-
 			if (!tabs.length || !activeTab) return;
+			const ci = tabs.indexOf(activeTab);
+			if (e.key === 'ArrowLeft' && ci > 0) tabs[ci - 1].click();
+			else if (e.key === 'ArrowRight' && ci < tabs.length - 1) tabs[ci + 1].click();
+			else if (e.key === 'Escape' && document.body.classList.contains('edit-mode')) toggleEditMode();
+		});
 
-			const currentIndex = tabs.indexOf(activeTab);
+		// ========== EDIT MODE ==========
+		let sortableInstance = null;
 
-			if (e.key === 'ArrowLeft') {
-				if (currentIndex > 0) {
-					tabs[currentIndex - 1].click();
-				}
-			} else if (e.key === 'ArrowRight') {
-				if (currentIndex < tabs.length - 1) {
-					tabs[currentIndex + 1].click();
+		function toggleEditMode(e) {
+			if (e) e.preventDefault();
+			const body = document.body;
+			const isEdit = body.classList.toggle('edit-mode');
+			document.getElementById('editToggle').classList.toggle('active', isEdit);
+
+			if (isEdit) {
+				sortableInstance = new Sortable(document.getElementById('gridContainer'), {
+					animation: 250,
+					ghostClass: 'sortable-ghost',
+					chosenClass: 'sortable-chosen',
+					dragClass: 'sortable-drag',
+					easing: 'cubic-bezier(0.4, 0, 0.2, 1)',
+					onEnd: saveOrder
+				});
+			} else {
+				if (sortableInstance) {
+					sortableInstance.destroy();
+					sortableInstance = null;
 				}
 			}
-		});
+		}
+
+		function saveOrder() {
+			const cards = document.querySelectorAll('#gridContainer > .card-wrapper');
+			const order = Array.from(cards).map(c => parseInt(c.dataset.index));
+			fetch('/api/reorder', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ order })
+			}).then(r => {
+				if (!r.ok) {
+					console.error('Reorder failed');
+				} else {
+					const sortedOrder = [...order].sort((a, b) => a - b);
+					Array.from(cards).forEach((c, i) => {
+						const newIdx = sortedOrder[i];
+						c.dataset.index = newIdx;
+						const editBtn = c.querySelector('.edit-btn');
+						if (editBtn) editBtn.href = editBtn.href.replace(/#edit-\d+/, '#edit-' + newIdx);
+						const delBtn = c.querySelector('.delete-btn');
+						if (delBtn) delBtn.setAttribute('onclick', `deleteCard(${newIdx})`);
+					});
+				}
+			});
+		}
+
+		function deleteCard(index) {
+			if (!confirm('Delete this card?')) return;
+			fetch('/admin/delete/' + index, { method: 'POST' })
+				.then(() => window.location.reload());
+		}
 	</script>
 
+	{% if settings.ticker_enabled %}
+	<input type="hidden" id="ticker-symbols-data"
+		value="{{ settings.ticker_symbols|default('AAPL, MSFT, TSLA, SPY, QQQ') }}">
+	<div id="ticker-container" class="tradingview-widget-container"
+		style="position: fixed; bottom: 0; left: 0; right: 0; z-index: 1000; height: 46px;">
+	</div>
+	<style>
+		.footer {
+			padding-bottom: calc(40px + 46px) !important;
+		}
+	</style>
+	{% endif %}
+
+	{% if settings.get('footer_enabled', True) %}
 	<div class="footer">
 		{{ settings.footer_text|default('Made with Love by DevOps Team') }}
 	</div>
+	{% endif %}
 
 </body>
 

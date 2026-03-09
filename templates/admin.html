@@ -8,6 +8,26 @@
 </head>
 
 <body class="admin-body">
+    <script>
+        // Init dark mode ASAP to prevent flash
+        const isDark = localStorage.getItem('darkMode') === 'true';
+        if (isDark) document.body.classList.add('dark-mode');
+
+        function updateDarkIcon(dark) {
+            const icon = document.getElementById('darkToggleIcon');
+            if (!icon) return;
+            if (dark) {
+                icon.innerHTML = '<circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>';
+            } else {
+                icon.innerHTML = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>';
+            }
+        }
+
+        document.addEventListener("DOMContentLoaded", () => {
+            updateDarkIcon(isDark);
+        });
+    </script>
+
     <nav class="navbar navbar-fixed">
         <div class="nav-links">
             {% for page in pages %}
@@ -15,286 +35,579 @@
             {% endfor %}
             <a href="{{ url_for('admin') }}" class="nav-link active">Admin</a>
         </div>
+        <button class="dark-toggle" id="darkToggle" onclick="toggleDarkMode()" title="Toggle dark mode"
+            style="position: absolute; right: 20px;">
+            <svg id="darkToggleIcon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></svg>
+        </button>
     </nav>
 
     <div class="admin-container">
-        <!-- ========== CARD FORM ========== -->
-        <h2 id="formTitle" class="admin-h2">Add New Card</h2>
+        <!-- ========== TAB MENU ========== -->
+        <div class="admin-tabs">
+            <button class="admin-tab-btn active" onclick="switchTab('cards')">
+                <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                    stroke-linejoin="round" style="margin-right: 8px;">
+                    <rect x="3" y="3" width="7" height="7"></rect>
+                    <rect x="14" y="3" width="7" height="7"></rect>
+                    <rect x="14" y="14" width="7" height="7"></rect>
+                    <rect x="3" y="14" width="7" height="7"></rect>
+                </svg>
+                Manage Cards
+            </button>
+            <button class="admin-tab-btn" onclick="switchTab('pages')">
+                <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                    stroke-linejoin="round" style="margin-right: 8px;">
+                    <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path>
+                    <polyline points="13 2 13 9 20 9"></polyline>
+                </svg>
+                Dashboard Pages
+            </button>
+            <button class="admin-tab-btn" onclick="switchTab('settings')">
+                <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                    stroke-linejoin="round" style="margin-right: 8px;">
+                    <circle cx="12" cy="12" r="3"></circle>
+                    <path
+                        d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z">
+                    </path>
+                </svg>
+                Settings
+            </button>
+        </div>
 
-        <div class="card-editor-split">
-            <div class="card-editor-form">
-                <form id="systemForm" action="{{ url_for('add_system') }}" method="POST" enctype="multipart/form-data">
-                    <input type="hidden" name="return_page" id="returnPageInput" value="1">
-                    <div class="form-group">
-                        <label class="admin-label">Use Preset (optional)</label>
-                        <input type="text" id="presetSearch" placeholder="Search presets..." class="page-input"
-                            style="width: 100%; margin-bottom: 5px;" oninput="filterPresets(this.value)">
-                        <select id="presetSelect" class="admin-select" onchange="applyPreset(this.value)">
-                            <option value="">-- Custom Card --</option>
-                            {% for preset in presets|sort(attribute='name') %}
-                            <option value="{{ preset.id }}" data-image="{{ preset.image }}"
-                                data-image-mode="{{ preset.image_mode }}" data-image-size="{{ preset.image_size }}"
-                                data-back-color="{{ preset.back_color }}" data-front-color="{{ preset.front_color }}"
-                                data-name="{{ preset.name }}">
-                                {{ preset.name }}{% if preset.builtin %} (built-in){% endif %}
-                            </option>
-                            {% endfor %}
-                        </select>
-                    </div>
+        <!-- ========== TAB: CARDS ========== -->
+        <div id="tab-cards" class="admin-tab-content" style="display: block;">
+            <!-- ========== CARD FORM ========== -->
+            <h2 id="formTitle" class="admin-h2">Add New Card</h2>
 
-                    <div class="form-group">
-                        <label class="admin-label">Card Name</label>
-                        <input type="text" name="name" id="nameInput" required oninput="updatePreview()">
-                    </div>
+            <div class="card-editor-split">
+                <div class="card-editor-form">
+                    <form id="systemForm" action="{{ url_for('add_system') }}" method="POST"
+                        enctype="multipart/form-data">
+                        <input type="hidden" name="return_page" id="returnPageInput" value="1">
+                        <input type="hidden" name="return_url" id="returnUrlInput"
+                            value="{{ request.args.get('return_url', '') }}">
+                        <details class="admin-category" open>
+                            <summary class="admin-category-header">General Settings</summary>
+                            <div class="admin-category-content">
+                                <div class="form-group">
+                                    <label class="admin-label">Use Preset (optional)</label>
+                                    <input type="text" id="presetSearch" placeholder="Search presets..."
+                                        class="page-input" style="width: 100%; margin-bottom: 5px;"
+                                        oninput="filterPresets(this.value)">
+                                    <select id="presetSelect" class="admin-select" onchange="applyPreset(this.value)">
+                                        <option value="">-- Custom Card --</option>
+                                        {% for preset in presets|sort(attribute='name') %}
+                                        <option value="{{ preset.id }}" data-image="{{ preset.image }}"
+                                            data-image-mode="{{ preset.image_mode }}"
+                                            data-image-size="{{ preset.image_size }}"
+                                            data-back-color="{{ preset.back_color }}"
+                                            data-front-color="{{ preset.front_color }}" data-name="{{ preset.name }}">
+                                            {{ preset.name }}{% if preset.builtin %} (built-in){% endif %}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
 
-                    <div class="form-group">
-                        <label class="admin-label">Tags / Versions (comma separated)</label>
-                        <input type="text" name="tag" id="tagInput" placeholder="e.g. v4.10, PROD"
-                            oninput="updatePreview()">
-                    </div>
+                                <div class="form-group">
+                                    <label class="admin-label">Card Name</label>
+                                    <input type="text" name="name" id="nameInput" required oninput="updatePreview()">
+                                </div>
+                            </div>
+                        </details>
 
-                    <div class="form-group">
-                        <label class="admin-label">Image (Upload new to replace)</label>
-                        <input type="file" name="image_file" accept="image/*" id="fileInput">
-                        <div class="paste-area" id="pasteArea" tabindex="0">
-                            Click here and Paste (Ctrl+V) an image, or Drag & Drop
-                        </div>
-                        <input type="hidden" name="pasted_image" id="pastedImage">
-                        <input type="hidden" name="preset_image" id="presetImageInput">
-                        <div id="preview" class="preview-container"></div>
-                    </div>
+                        <details class="admin-category">
+                            <summary class="admin-category-header">Appearance & Styling</summary>
+                            <div class="admin-category-content">
 
-                    <div class="form-group">
-                        <label class="admin-label">Card Back Color</label>
-                        <input type="color" name="back_color" id="colorInput" value="#000000" class="color-input"
-                            oninput="updatePreview()">
-                    </div>
+                                <div class="form-group">
+                                    <label class="admin-label">Tags / Versions (comma separated)</label>
+                                    <input type="text" name="tag" id="tagInput" placeholder="e.g. v4.10, PROD"
+                                        oninput="updatePreview()">
+                                    <div style="display: flex; gap: 12px; margin-top: 8px; align-items: center;">
+                                        <div>
+                                            <label class="admin-label"
+                                                style="font-size: 12px; margin-bottom: 4px;">Color</label>
+                                            <input type="color" name="tag_bg_color" id="tagBgColorInput" value="#0f172a"
+                                                class="color-input" style="width: 50px; height: 30px;"
+                                                oninput="updatePreview()">
+                                        </div>
+                                        <div>
+                                            <label class="admin-label"
+                                                style="font-size: 12px; margin-bottom: 4px;">Opacity</label>
+                                            <div style="display: flex; align-items: center; gap: 4px;">
+                                                <input type="range" name="tag_opacity" id="tagOpacityInput" value="80"
+                                                    min="0" max="100" style="width: 60px;"
+                                                    oninput="document.getElementById('tagOpacityVal').innerText = this.value; updatePreview()">
+                                                <span id="tagOpacityVal"
+                                                    style="font-size: 11px; color: #a1a1aa; width: 20px;">80</span>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label class="admin-label"
+                                                style="font-size: 12px; margin-bottom: 4px;">Position</label>
+                                            <select name="tag_position" id="tagPositionInput" class="admin-select"
+                                                style="width: 130px; margin: 0; padding: 6px;"
+                                                onchange="updatePreview()">
+                                                <option value="top-right">Top Right</option>
+                                                <option value="top-left">Top Left</option>
+                                                <option value="bottom-right">Bottom Right</option>
+                                                <option value="bottom-left">Bottom Left</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
 
-                    <div class="form-group">
-                        <label class="admin-label">Image Display Mode</label>
-                        <select name="image_mode" id="imageModeInput" class="admin-select"
-                            onchange="updatePreview(); toggleFrontColor();">
-                            <option value="fill">Fill (cover entire card)</option>
-                            <option value="fit">Fit (show full image)</option>
-                        </select>
-                    </div>
+                                <div class="form-group"
+                                    style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px; margin-top: 5px;">
+                                    <label class="admin-label">Card Title Customization</label>
+                                    <div style="display: flex; align-items: center; margin-bottom: 8px;">
+                                        <input type="checkbox" name="title_bg_enabled" id="titleBgEnabledInput" checked
+                                            onchange="toggleTitleBgInputs(); updatePreview();">
+                                        <label for="titleBgEnabledInput"
+                                            style="font-size: 13px; color: #a1a1aa; margin-left: 8px; cursor: pointer;">Enable
+                                            Background
+                                            Pill</label>
+                                    </div>
+                                    <div style="display: flex; gap: 12px; align-items: center;">
+                                        <div id="titleBgOptions" style="display: flex; gap: 12px; align-items: center;">
+                                            <div>
+                                                <label class="admin-label"
+                                                    style="font-size: 12px; margin-bottom: 4px;">Bg
+                                                    Color</label>
+                                                <input type="color" name="title_bg_color" id="titleBgColorInput"
+                                                    value="#ffffff" class="color-input"
+                                                    style="width: 50px; height: 30px;" oninput="updatePreview()">
+                                            </div>
+                                            <div>
+                                                <label class="admin-label"
+                                                    style="font-size: 12px; margin-bottom: 4px;">Bg
+                                                    Opacity</label>
+                                                <div style="display: flex; align-items: center; gap: 4px;">
+                                                    <input type="range" name="title_bg_opacity" id="titleBgOpacityInput"
+                                                        value="80" min="0" max="100" style="width: 60px;"
+                                                        oninput="document.getElementById('titleBgOpacityVal').innerText = this.value; updatePreview()">
+                                                    <span id="titleBgOpacityVal"
+                                                        style="font-size: 11px; color: #a1a1aa; width: 20px;">80</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label class="admin-label" style="font-size: 12px; margin-bottom: 4px;">Text
+                                                (Light
+                                                M)</label>
+                                            <input type="color" name="title_text_light" id="titleTextLightInput"
+                                                value="#1e293b" class="color-input" style="width: 50px; height: 30px;"
+                                                oninput="updatePreview()">
+                                        </div>
+                                        <div>
+                                            <label class="admin-label" style="font-size: 12px; margin-bottom: 4px;">Text
+                                                (Dark
+                                                M)</label>
+                                            <input type="color" name="title_text_dark" id="titleTextDarkInput"
+                                                value="#e2e8f0" class="color-input" style="width: 50px; height: 30px;"
+                                                oninput="updatePreview()">
+                                        </div>
+                                    </div>
+                                </div>
 
-                    <div class="form-group" id="frontColorGroup" style="display: none;">
-                        <label class="admin-label">Card Front Color (for fit mode)</label>
-                        <input type="color" name="front_color" id="frontColorInput" value="#11161F" class="color-input"
-                            oninput="updatePreview()">
-                    </div>
+                                <details class="admin-category">
+                                    <summary class="admin-category-header">Image Settings</summary>
+                                    <div class="admin-category-content">
+                                        <div class="form-group">
+                                            <label class="admin-label">Image (Upload new to replace)</label>
+                                            <input type="file" name="image_file" accept="image/*" id="fileInput">
+                                            <div class="paste-area" id="pasteArea" tabindex="0">
+                                                Click here and Paste (Ctrl+V) an image, or Drag & Drop
+                                            </div>
+                                            <input type="hidden" name="pasted_image" id="pastedImage">
+                                            <input type="hidden" name="preset_image" id="presetImageInput">
+                                            <div id="preview" class="preview-container"></div>
+                                        </div>
 
-                    <div class="form-group" id="imageSizeGroup" style="display: none;">
-                        <label class="admin-label">Image Size: <span id="imageSizeValue">80</span>%</label>
-                        <input type="range" name="image_size" id="imageSizeInput" min="20" max="100" value="80"
-                            class="image-size-input"
-                            oninput="document.getElementById('imageSizeValue').textContent = this.value; updatePreview();">
-                    </div>
+                                        <div class="form-group">
+                                            <label class="admin-label">Card Back Color</label>
+                                            <input type="color" name="back_color" id="colorInput" value="#000000"
+                                                class="color-input" oninput="updatePreview()">
+                                        </div>
 
-                    <div class="form-group">
-                        <label class="admin-label">Assign to Pages</label>
-                        <div class="checkbox-group" id="pagesCheckboxes">
-                            {% for page in pages %}
-                            <label>
-                                <input type="checkbox" name="assigned_pages[]" value="{{ page.id }}" {% if
-                                    page.id=='default' %}checked{% endif %}>
-                                {{ page.name }}
-                            </label>
-                            {% endfor %}
-                        </div>
-                    </div>
+                                        <div class="form-group">
+                                            <label class="admin-label">Image Display Mode</label>
+                                            <select name="image_mode" id="imageModeInput" class="admin-select"
+                                                onchange="updatePreview(); toggleFrontColor();">
+                                                <option value="fill">Fill (cover entire card)</option>
+                                                <option value="fit">Fit (show full image)</option>
+                                            </select>
+                                        </div>
 
-                    <div class="form-group">
-                        <label class="admin-label">Links</label>
-                        <div id="linksContainer">
-                            <div class="link-row">
-                                <input type="text" name="link_text[]" placeholder="Link Text (e.g. Jira)" required
-                                    oninput="updatePreview()">
-                                <input type="text" name="link_url[]" placeholder="URL (e.g. https://...)" required>
+                                        <div class="form-group" id="frontColorGroup">
+                                            <label class="admin-label">Card Front Color (For 'Fit' mode)</label>
+                                            <input type="color" name="front_color" id="frontColorInput" value="#11161F"
+                                                class="color-input" oninput="updatePreview()">
+                                        </div>
+
+                                        <div class="form-group" id="imageSizeGroup">
+                                            <label class="admin-label">Image Size: <span
+                                                    id="imageSizeValue">80</span>%</label>
+                                            <input type="range" name="image_size" id="imageSizeInput" min="20" max="100"
+                                                value="80" class="image-size-input"
+                                                oninput="document.getElementById('imageSizeValue').textContent = this.value; updatePreview();">
+                                        </div>
+                                    </div>
+                                </details>
+
+                                <details class="admin-category">
+                                    <summary class="admin-category-header">Links & Pages</summary>
+                                    <div class="admin-category-content">
+
+                                        <div class="form-group">
+                                            <label class="admin-label">Assign to Pages</label>
+                                            <div class="checkbox-group" id="pagesCheckboxes">
+                                                {% for page in pages %}
+                                                <label>
+                                                    <input type="checkbox" name="assigned_pages[]" value="{{ page.id }}"
+                                                        {% if page.id=='default' %}checked{% endif %}>
+                                                    {{ page.name }}
+                                                </label>
+                                                {% endfor %}
+                                            </div>
+                                        </div>
+
+                                        <div class="form-group">
+                                            <label class="admin-label">Links</label>
+                                            <div id="linksContainer">
+                                                <div class="link-row">
+                                                    <input type="text" name="link_text[]"
+                                                        placeholder="Link Text (e.g. Jira)" required
+                                                        oninput="updatePreview()">
+                                                    <input type="text" name="link_url[]"
+                                                        placeholder="URL (e.g. https://...)" required>
+                                                </div>
+                                            </div>
+                                            <button type="button" class="btn btn-secondary btn-small"
+                                                onclick="addLinkRow()">+ Add Another
+                                                Link</button>
+                                        </div>
+                                    </div>
+                                </details>
+
+                            </div>
+                        </details>
+
+                        <button type="submit" class="btn" id="submitBtn">Add Card</button>
+                        <button type="button" class="btn btn-secondary btn-cancel" id="cancelBtn"
+                            onclick="cancelEdit()">Cancel
+                            Edit</button>
+                    </form>
+                </div>
+
+                <div class="card-editor-preview">
+                    <div class="preview-label">Live Preview (hover to flip)</div>
+                    <div class="preview-card">
+                        <div class="preview-card-inner">
+                            <div class="preview-front">
+                                <img id="previewImage" src="{{ url_for('static', filename='generic.png') }}"
+                                    alt="Preview">
+                                <div class="card-title" id="previewTitle">Card Name</div>
+                            </div>
+                            <div class="preview-back" id="previewBack">
+                                <span id="previewName">Card Name</span>
                             </div>
                         </div>
-                        <button type="button" class="btn btn-secondary btn-small" onclick="addLinkRow()">+ Add Another
-                            Link</button>
                     </div>
 
-                    <button type="submit" class="btn" id="submitBtn">Add Card</button>
-                    <button type="button" class="btn btn-secondary btn-cancel" id="cancelBtn"
-                        onclick="cancelEdit()">Cancel Edit</button>
-                </form>
-            </div>
-
-            <div class="card-editor-preview">
-                <div class="preview-label">Live Preview (hover to flip)</div>
-                <div class="preview-card">
-                    <div class="preview-card-inner">
-                        <div class="preview-front">
-                            <img id="previewImage" src="{{ url_for('static', filename='generic.png') }}" alt="Preview">
-                        </div>
-                        <div class="preview-back" id="previewBack">
-                            <span id="previewName">Card Name</span>
+                    <div style="margin-top: 24px; background: rgba(0,0,0,0.02); padding: 16px; border-radius: 8px; border: 1px solid var(--card-border);"
+                        class="dark-mode:bg-white/5">
+                        <h3 style="font-size: 14px; margin-bottom: 12px; margin-top: 0; color: var(--text-main);">Global
+                            Styles</h3>
+                        <p style="font-size: 12px; color: #a1a1aa; margin-bottom: 16px; line-height: 1.4;">Use the
+                            current
+                            Appearance & Image settings as the default for new cards, or apply them to all existing
+                            cards at
+                            once.</p>
+                        <div style="display: flex; gap: 8px; flex-direction: column;">
+                            <button type="button" class="btn btn-secondary btn-small"
+                                onclick="submitBulkStyle('defaults')" style="width: 100%;">Set as Default Style</button>
+                            <button type="button" class="btn btn-secondary btn-small"
+                                style="background: rgba(220, 38, 38, 0.1); color: #ef4444; border-color: rgba(220, 38, 38, 0.2); width: 100%;"
+                                onclick="submitBulkStyle('all')">Apply to All Existing Cards</button>
                         </div>
                     </div>
+
                 </div>
             </div>
-        </div>
 
-        <hr class="admin-hr" style="margin: 40px 0;">
+            <hr class="admin-hr" style="margin: 40px 0;">
 
-        <!-- ========== CARDS LIST ========== -->
-        <h2 class="admin-h2 admin-header-flex">
-            Existing Cards
-            <input type="text" id="cardFilter" placeholder="Filter cards..." class="filter-input">
-        </h2>
-        <table class="system-list" id="cardsTable">
-            <thead>
-                <tr>
-                    <th>Image</th>
-                    <th>Name</th>
-                    <th>Tags</th>
-                    <th>Pages</th>
-                    <th>Links</th>
-                    <th>Action</th>
-                </tr>
-            </thead>
-            <tbody id="cardsBody">
-                {% for system in systems %}
-                <tr class="card-row" data-index="{{ loop.index0 }}"
-                    data-search="{{ system.name|lower }} {{ system.pages|join(' ')|lower }} {% for l in system.links %}{{ l.text|lower }} {{ l.url|lower }} {% endfor %}">
-                    <td>
-                        {% if system.image.startswith('presets/') or system.image == 'generic.png' %}
-                        <img src="{{ url_for('static', filename=system.image if system.image.startswith('presets/') else 'generic.png') }}"
-                            alt="{{ system.name }}" class="table-icon">
-                        {% else %}
-                        <img src="{{ url_for('uploaded_file', filename=system.image) }}" alt="{{ system.name }}"
-                            class="table-icon">
-                        {% endif %}
-                    </td>
-                    <td>{{ system.name }}</td>
-                    <td>
-                        {% if system.tags %}
-                        {% for tag in system.tags %}
-                        <span class="tag-badge" style="background-color: #555;">{{ tag }}</span>
-                        {% endfor %}
-                        {% elif system.tag %}
-                        <span class="tag-badge" style="background-color: #555;">{{ system.tag }}</span>
-                        {% endif %}
-                    </td>
-                    <td>
-                        {% for pid in system.pages %}
-                        <span class="tag-badge">{{
-                            pid }}</span>
-                        {% endfor %}
-                    </td>
-                    <td>
-                        {% for link in system.links %}
-                        <div><a href="{{ link.url }}" target="_blank">{{ link.text }}</a></div>
-                        {% endfor %}
-                    </td>
-                    <td>
-                        <div style="display: flex; gap: 5px;">
-                            <button type="button" class="btn btn-secondary btn-small btn-xs"
-                                onclick="moveCard('up', {{ loop.index0 }})" {% if loop.first %}disabled
-                                style="opacity:0.3" {% endif %}>↑</button>
-                            <button type="button" class="btn btn-secondary btn-small btn-xs"
-                                onclick="moveCard('down', {{ loop.index0 }})" {% if loop.last %}disabled
-                                style="opacity:0.3" {% endif %}>↓</button>
-                            <button class="btn btn-secondary edit-btn btn-small" data-id="{{ loop.index0 }}"
-                                data-name="{{ system.name }}"
-                                data-tags='{{ (system.tags if system.tags else [system.tag] if system.tag else [])|tojson|e }}'
-                                data-color="{{ system.back_color|default('#000000') }}" data-image="{{ system.image }}"
-                                data-image-mode="{{ system.image_mode|default('fill') }}"
-                                data-front-color="{{ system.front_color|default('#11161F') }}"
-                                data-image-size="{{ system.image_size|default('80') }}"
-                                data-links='{{ system.links|tojson|e }}'
-                                data-pages='{{ system.pages|tojson|e }}'>Edit</button>
-                            <form action="{{ url_for('delete_system', id=loop.index0) }}" method="POST"
-                                class="inline-form" onsubmit="return confirm('Delete this card?');">
-                                <button type="submit" class="btn btn-danger btn-small">Delete</button>
-                            </form>
-                            <form action="{{ url_for('duplicate_system', id=loop.index0) }}" method="POST"
-                                class="inline-form" onsubmit="return confirm('Duplicate this card?');">
-                                <button type="submit" class="btn btn-secondary btn-small"
-                                    title="Duplicate">Copy</button>
-                            </form>
-                        </div>
-                    </td>
-                </tr>
+            <!-- ========== CARDS LIST ========== -->
+            <h2 class="admin-h2 admin-header-flex">
+                Existing Cards
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <select id="itemsPerPageSelect" class="admin-select"
+                        style="width: auto; margin: 0; padding: 6px 10px;" onchange="changeItemsPerPage(this.value)">
+                        <option value="5">5 per page</option>
+                        <option value="10">10 per page</option>
+                        <option value="20">20 per page</option>
+                        <option value="50">50 per page</option>
+                        <option value="100">100 per page</option>
+                    </select>
+                    <input type="text" id="cardFilter" placeholder="Filter cards..." class="filter-input"
+                        style="margin: 0;">
+                </div>
+            </h2>
+            <table class="system-list" id="cardsTable">
+                <thead>
+                    <tr>
+                        <th>Image</th>
+                        <th>Name</th>
+                        <th>Tags</th>
+                        <th>Pages</th>
+                        <th>Links</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="cardsBody">
+                    {% for system in systems %}
+                    <tr class="card-row" data-index="{{ loop.index0 }}"
+                        data-search="{{ system.name|lower }} {{ system.pages|join(' ')|lower }} {% for l in system.links %}{{ l.text|lower }} {{ l.url|lower }} {% endfor %}">
+                        <td>
+                            {% if system.image.startswith('presets/') or system.image == 'generic.png' %}
+                            <img src="{{ url_for('static', filename=system.image if system.image.startswith('presets/') else 'generic.png') }}"
+                                alt="{{ system.name }}" class="table-icon">
+                            {% else %}
+                            <img src="{{ url_for('uploaded_file', filename=system.image) }}" alt="{{ system.name }}"
+                                class="table-icon">
+                            {% endif %}
+                        </td>
+                        <td>{{ system.name }}</td>
+                        <td>
+                            {% if system.tags %}
+                            {% for tag in system.tags %}
+                            <span class="tag-badge" style="background-color: #555;">{{ tag }}</span>
+                            {% endfor %}
+                            {% elif system.tag %}
+                            <span class="tag-badge" style="background-color: #555;">{{ system.tag }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% for pid in system.pages %}
+                            <span class="tag-badge">{{
+                                pid }}</span>
+                            {% endfor %}
+                        </td>
+                        <td>
+                            {% for link in system.links %}
+                            <div><a href="{{ link.url }}" target="_blank">{{ link.text }}</a></div>
+                            {% endfor %}
+                        </td>
+                        <td>
+                            <div style="display: flex; gap: 5px;">
+                                <button class="btn btn-secondary edit-btn btn-small" data-id="{{ loop.index0 }}"
+                                    data-name="{{ system.name }}"
+                                    data-tags='{{ (system.tags if system.tags else [system.tag] if system.tag else [])|tojson|e }}'
+                                    data-tag-bg-color="{{ system.tag_bg_color|default('#0f172a') }}"
+                                    data-tag-opacity="{{ system.tag_opacity|default(80) }}"
+                                    data-tag-position="{{ system.tag_position|default('top-right') }}"
+                                    data-title-bg-enabled="{{ 'true' if system.get('title_bg_enabled', True) else 'false' }}"
+                                    data-title-bg-color="{{ system.get('title_bg_color', '#ffffff') }}"
+                                    data-title-bg-opacity="{{ system.get('title_bg_opacity', 80) }}"
+                                    data-title-text-light="{{ system.get('title_text_light', '#1e293b') }}"
+                                    data-title-text-dark="{{ system.get('title_text_dark', '#e2e8f0') }}"
+                                    data-color="{{ system.back_color|default('#000000') }}"
+                                    data-image="{{ system.image }}"
+                                    data-image-mode="{{ system.image_mode|default('fill') }}"
+                                    data-front-color="{{ system.front_color|default('#11161F') }}"
+                                    data-image-size="{{ system.image_size|default('80') }}"
+                                    data-links='{{ system.links|tojson|e }}'
+                                    data-pages='{{ system.pages|tojson|e }}'>Edit</button>
+                                <form action="{{ url_for('delete_system', id=loop.index0) }}" method="POST"
+                                    class="inline-form" onsubmit="return confirm('Delete this card?');">
+                                    <button type="submit" class="btn btn-danger btn-small">Delete</button>
+                                </form>
+                                <form action="{{ url_for('duplicate_system', id=loop.index0) }}" method="POST"
+                                    class="inline-form" onsubmit="return confirm('Duplicate this card?');">
+                                    <button type="submit" class="btn btn-secondary btn-small"
+                                        title="Duplicate">Copy</button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            <!-- Pagination -->
+            <div id="pagination" style="display: flex; justify-content: center; gap: 10px; margin-top: 20px;"></div>
+        </div> <!-- End Tab Cards -->
+
+        <!-- ========== TAB: PAGES ========== -->
+        <div id="tab-pages" class="admin-tab-content" style="display: none;">
+            <!-- ========== PAGE MANAGEMENT ========== -->
+            <h2 class="admin-h2">Manage Pages</h2>
+            <form action="{{ url_for('add_page') }}" method="POST" class="page-form">
+                <input type="text" name="page_name" placeholder="New page name (e.g. DevOps)" required
+                    class="page-input">
+                <button type="submit" class="btn btn-small">Add Page</button>
+            </form>
+            <div class="page-list">
+                {% for page in pages %}
+                <div class="page-item {% if page.id == 'default' %}default{% endif %}">
+                    <span>{{ page.name }}</span>
+                    <div style="display: flex; gap: 2px; margin-left: 5px;">
+                        <button type="button" class="btn btn-secondary btn-xs" onclick="movePage('up', '{{ page.id }}')"
+                            {% if loop.first %}disabled style="opacity:0.3" {% endif %}>←</button>
+                        <button type="button" class="btn btn-secondary btn-xs"
+                            onclick="movePage('down', '{{ page.id }}')" {% if loop.last %}disabled style="opacity:0.3"
+                            {% endif %}>→</button>
+                    </div>
+
+                    {% if page.id != 'default' %}
+                    <form action="{{ url_for('delete_page', page_id=page.id) }}" method="POST" class="inline-form"
+                        onsubmit="return confirm('Delete page {{ page.name }}?');">
+                        <button type="submit" class="btn btn-danger btn-small btn-xs">×</button>
+                    </form>
+                    {% endif %}
+                </div>
                 {% endfor %}
-            </tbody>
-        </table>
+            </div>
+        </div> <!-- End Tab Pages -->
 
-        <!-- Pagination -->
-        <div id="pagination" style="display: flex; justify-content: center; gap: 10px; margin-top: 20px;"></div>
-
-        <hr class="admin-hr" style="margin: 40px 0;">
-
-        <!-- ========== PAGE MANAGEMENT ========== -->
-        <h2 class="admin-h2">Manage Pages</h2>
-        <form action="{{ url_for('add_page') }}" method="POST" class="page-form">
-            <input type="text" name="page_name" placeholder="New page name (e.g. DevOps)" required class="page-input">
-            <button type="submit" class="btn btn-small">Add Page</button>
-        </form>
-        <div class="page-list">
-            {% for page in pages %}
-            <div class="page-item {% if page.id == 'default' %}default{% endif %}">
-                <span>{{ page.name }}</span>
-                <div style="display: flex; gap: 2px; margin-left: 5px;">
-                    <button type="button" class="btn btn-secondary btn-xs" onclick="movePage('up', '{{ page.id }}')" {%
-                        if loop.first %}disabled style="opacity:0.3" {% endif %}>←</button>
-                    <button type="button" class="btn btn-secondary btn-xs" onclick="movePage('down', '{{ page.id }}')"
-                        {% if loop.last %}disabled style="opacity:0.3" {% endif %}>→</button>
+        <!-- ========== TAB: SETTINGS ========== -->
+        <div id="tab-settings" class="admin-tab-content" style="display: none;">
+            <!-- ========== SEARCH SETTINGS ========== -->
+            <h2 class="admin-h2">Search Bar Settings</h2>
+            <form action="{{ url_for('update_settings') }}" method="POST" class="settings-form">
+                <label class="checkbox-label">
+                    <input type="checkbox" name="search_enabled" {% if settings.search_enabled %}checked{% endif %}
+                        class="checkbox-input-large">
+                    Enable Search Bar
+                </label>
+                <input type="text" name="search_placeholder" value="{{ settings.search_placeholder }}"
+                    placeholder="Placeholder (e.g. Google Search)" class="settings-input-flex">
+                <div class="input-group-row">
+                    <input type="number" name="search_width" value="{{ settings.search_width }}" placeholder="Width"
+                        class="input-width">
+                    <span class="text-muted">px</span>
                 </div>
+                <input type="text" name="search_base_url" value="{{ settings.search_base_url }}"
+                    placeholder="Search Base URL (e.g. https://www.google.com/search?q=)" class="settings-input-large">
+                <input type="hidden" name="cards_per_row" value="{{ settings.cards_per_row|default(0) }}">
+                <input type="hidden" name="footer_enabled" value="{{ 'on' if settings.footer_enabled else '' }}">
+                <input type="hidden" name="footer_text"
+                    value="{{ settings.footer_text|default('Made with Love by DevOps Team') }}">
+                <input type="hidden" name="ticker_enabled" value="{{ 'on' if settings.ticker_enabled else '' }}">
+                <input type="hidden" name="ticker_symbols"
+                    value="{{ settings.ticker_symbols|default('AAPL, MSFT, TSLA, SPY, QQQ') }}">
+                <button type="submit" class="btn btn-small">Save Settings</button>
+            </form>
 
-                {% if page.id != 'default' %}
-                <form action="{{ url_for('delete_page', page_id=page.id) }}" method="POST" class="inline-form"
-                    onsubmit="return confirm('Delete page {{ page.name }}?');">
-                    <button type="submit" class="btn btn-danger btn-small btn-xs">×</button>
-                </form>
-                {% endif %}
-            </div>
-            {% endfor %}
-        </div>
+            <hr class="admin-hr">
 
-        <hr class="admin-hr">
+            <!-- ========== LAYOUT SETTINGS ========== -->
+            <h2 class="admin-h2">Layout Settings</h2>
+            <form action="{{ url_for('update_settings') }}" method="POST" class="settings-form">
+                <input type="hidden" name="search_enabled" value="{{ 'on' if settings.search_enabled else '' }}">
+                <input type="hidden" name="search_base_url" value="{{ settings.search_base_url }}">
+                <input type="hidden" name="search_placeholder" value="{{ settings.search_placeholder }}">
+                <input type="hidden" name="search_width" value="{{ settings.search_width }}">
+                <input type="hidden" name="footer_enabled" value="{{ 'on' if settings.footer_enabled else '' }}">
+                <input type="hidden" name="footer_text"
+                    value="{{ settings.footer_text|default('Made with Love by DevOps Team') }}">
+                <input type="hidden" name="ticker_enabled" value="{{ 'on' if settings.ticker_enabled else '' }}">
+                <input type="hidden" name="ticker_symbols"
+                    value="{{ settings.ticker_symbols|default('AAPL, MSFT, TSLA, SPY, QQQ') }}">
+                <label class="admin-label" style="margin-bottom:0; margin-right: 10px;">Cards per Row</label>
+                <select name="cards_per_row" class="admin-select" style="width: 150px; margin: 0;">
+                    <option value="0" {% if settings.cards_per_row|default(0)|int==0 %}selected{% endif %}>Auto</option>
+                    {% for n in range(5, 11) %}
+                    <option value="{{ n }}" {% if settings.cards_per_row|default(0)|int==n %}selected{% endif %}>{{ n }}
+                    </option>
+                    {% endfor %}
+                </select>
+                <button type="submit" class="btn btn-small">Save Layout</button>
+            </form>
 
-        <!-- ========== SEARCH SETTINGS ========== -->
-        <h2 class="admin-h2">Search Bar Settings</h2>
-        <form action="{{ url_for('update_settings') }}" method="POST" class="settings-form">
-            <label class="checkbox-label">
-                <input type="checkbox" name="search_enabled" {% if settings.search_enabled %}checked{% endif %}
-                    class="checkbox-input-large">
-                Enable Search Bar
-            </label>
-            <input type="text" name="search_placeholder" value="{{ settings.search_placeholder }}"
-                placeholder="Placeholder (e.g. Google Search)" class="settings-input-flex">
-            <div class="input-group-row">
-                <input type="number" name="search_width" value="{{ settings.search_width }}" placeholder="Width"
-                    class="input-width">
-                <span class="text-muted">px</span>
-            </div>
-            <input type="text" name="search_base_url" value="{{ settings.search_base_url }}"
-                placeholder="Search Base URL (e.g. https://www.google.com/search?q=)" class="settings-input-large">
-            <button type="submit" class="btn btn-small">Save Settings</button>
-        </form>
+            <hr class="admin-hr">
 
-        <hr class="admin-hr">
+            <!-- ========== FOOTER SETTINGS ========== -->
+            <h2 class="admin-h2">Footer Settings</h2>
+            <form action="{{ url_for('update_settings') }}" method="POST" class="settings-form">
+                <input type="hidden" name="search_enabled" value="{{ 'on' if settings.search_enabled else '' }}">
+                <input type="hidden" name="search_base_url" value="{{ settings.search_base_url }}">
+                <input type="hidden" name="search_placeholder" value="{{ settings.search_placeholder }}">
+                <input type="hidden" name="search_width" value="{{ settings.search_width }}">
+                <input type="hidden" name="cards_per_row" value="{{ settings.cards_per_row|default(0) }}">
+                <input type="hidden" name="ticker_enabled" value="{{ 'on' if settings.ticker_enabled else '' }}">
+                <input type="hidden" name="ticker_symbols"
+                    value="{{ settings.ticker_symbols|default('AAPL, MSFT, TSLA, SPY, QQQ') }}">
+                <label class="checkbox-label" style="width: 100%;">
+                    <input type="checkbox" name="footer_enabled" {% if settings.footer_enabled %}checked{% endif %}
+                        class="checkbox-input-large">
+                    Enable Footer
+                </label>
+                <div style="width: 100%; margin-top: 10px;">
+                    <input type="text" name="footer_text"
+                        value="{{ settings.footer_text|default('Made with Love by DevOps Team') }}"
+                        placeholder="Footer text" class="settings-input-large-text">
+                </div>
+                <button type="submit" class="btn btn-small" style="margin-top: 10px;">Save Footer</button>
+            </form>
 
-        <!-- ========== FOOTER SETTINGS ========== -->
-        <h2 class="admin-h2">Footer Settings</h2>
-        <form action="{{ url_for('update_settings') }}" method="POST" class="settings-form">
-            <input type="hidden" name="search_enabled" value="{{ 'on' if settings.search_enabled else '' }}">
-            <input type="hidden" name="search_base_url" value="{{ settings.search_base_url }}">
-            <input type="hidden" name="search_placeholder" value="{{ settings.search_placeholder }}">
-            <input type="hidden" name="search_width" value="{{ settings.search_width }}">
-            <input type="text" name="footer_text"
-                value="{{ settings.footer_text|default('Made with Love by DevOps Team') }}" placeholder="Footer text"
-                class="settings-input-large-text">
-            <button type="submit" class="btn btn-small">Save Footer</button>
-        </form>
+            <hr class="admin-hr">
+
+            <!-- ========== TICKER SETTINGS ========== -->
+            <h2 class="admin-h2">Ticker Settings</h2>
+            <form action="{{ url_for('update_settings') }}" method="POST" class="settings-form">
+                <input type="hidden" name="search_enabled" value="{{ 'on' if settings.search_enabled else '' }}">
+                <input type="hidden" name="search_base_url" value="{{ settings.search_base_url }}">
+                <input type="hidden" name="search_placeholder" value="{{ settings.search_placeholder }}">
+                <input type="hidden" name="search_width" value="{{ settings.search_width }}">
+                <input type="hidden" name="cards_per_row" value="{{ settings.cards_per_row|default(0) }}">
+                <input type="hidden" name="footer_enabled" value="{{ 'on' if settings.footer_enabled else '' }}">
+                <input type="hidden" name="footer_text"
+                    value="{{ settings.footer_text|default('Made with Love by DevOps Team') }}">
+
+                <label class="checkbox-label" style="width: 100%;">
+                    <input type="checkbox" name="ticker_enabled" {% if settings.ticker_enabled %}checked{% endif %}
+                        class="checkbox-input-large">
+                    Enable Live Stock/Index Ticker
+                </label>
+
+                <div style="width: 100%; margin-top: 10px;">
+                    <label class="admin-label">Ticker Symbols (Comma separated)</label>
+                    <input type="text" name="ticker_symbols"
+                        value="{{ settings.ticker_symbols|default('AAPL, MSFT, TSLA, SPY, QQQ') }}"
+                        placeholder="e.g. AAPL, MSFT, SPY" class="settings-input-large-text" style="width: 100%;">
+                </div>
+                <button type="submit" class="btn btn-small" style="margin-top: 10px;">Save Ticker</button>
+            </form>
+        </div> <!-- End Tab Settings -->
     </div>
 
     <script>
+        // ========== TABS FUNCTIONALITY ==========
+        function switchTab(tabId) {
+            document.querySelectorAll('.admin-tab-content').forEach(el => el.style.display = 'none');
+            document.querySelectorAll('.admin-tab-btn').forEach(btn => btn.classList.remove('active'));
+
+            document.getElementById('tab-' + tabId).style.display = 'block';
+            event.currentTarget.classList.add('active');
+
+            // Save tab state to localStorage so it stays active across reloads
+            localStorage.setItem('activeAdminTab', tabId);
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const savedTab = localStorage.getItem('activeAdminTab');
+            if (savedTab) {
+                const map = { 'cards': 0, 'pages': 1, 'settings': 2 };
+                if (map[savedTab] !== undefined) {
+                    const btn = document.querySelectorAll('.admin-tab-btn')[map[savedTab]];
+                    if (btn) btn.click();
+                }
+            }
+        });
+
         // ========== LIVE PREVIEW ==========
         let previewPage = 0;
 
@@ -339,10 +652,20 @@
         }
 
         function toggleFrontColor() {
+            // Keep front color and image size fully enabled always, so they can be set correctly
+            // as global defaults even when the preview card is in 'fill' mode.
             const mode = document.getElementById('imageModeInput').value;
             const isFit = mode === 'fit';
-            document.getElementById('frontColorGroup').style.display = isFit ? 'block' : 'none';
-            document.getElementById('imageSizeGroup').style.display = isFit ? 'block' : 'none';
+            document.getElementById('frontColorGroup').style.opacity = '1';
+            document.getElementById('frontColorGroup').style.pointerEvents = 'auto';
+            document.getElementById('imageSizeGroup').style.opacity = '1';
+            document.getElementById('imageSizeGroup').style.pointerEvents = 'auto';
+        }
+
+        function toggleTitleBgInputs() {
+            const isEnabled = document.getElementById('titleBgEnabledInput').checked;
+            document.getElementById('titleBgOptions').style.opacity = isEnabled ? '1' : '0.4';
+            document.getElementById('titleBgOptions').style.pointerEvents = isEnabled ? 'auto' : 'none';
         }
 
         function applyPreset(presetId) {
@@ -412,22 +735,57 @@
 
             const color = document.getElementById('colorInput').value || '#000000';
             const imageMode = document.getElementById('imageModeInput').value || 'fill';
-            const frontColor = document.getElementById('frontColorInput').value || '#11161F';
+            const frontColor = document.getElementById('frontColorInput').value || '#ffffff';
             const imageSize = document.getElementById('imageSizeInput').value || '80';
             const previewBack = document.getElementById('previewBack');
             const previewImage = document.getElementById('previewImage');
             const previewFront = document.querySelector('.preview-front');
+            const previewTitle = document.getElementById('previewTitle');
 
             // Update front color and image mode
-            previewFront.style.backgroundColor = frontColor;
+            previewFront.style.backgroundColor = (imageMode === 'fit') ? frontColor : '#ffffff';
             if (imageMode === 'fit') {
                 previewImage.style.objectFit = 'contain';
-                previewImage.style.width = imageSize + '%';
-                previewImage.style.height = imageSize + '%';
+                previewImage.style.maxWidth = imageSize + '%';
+                previewImage.style.maxHeight = (parseInt(imageSize) * 0.7) + '%';
+                previewImage.style.width = 'auto';
+                previewImage.style.height = 'auto';
             } else {
-                previewImage.style.objectFit = 'cover';
-                previewImage.style.width = '100%';
-                previewImage.style.height = '100%';
+                previewImage.style.objectFit = 'contain';
+                previewImage.style.maxWidth = '70%';
+                previewImage.style.maxHeight = '55%';
+                previewImage.style.width = 'auto';
+                previewImage.style.height = 'auto';
+            }
+
+            // Update card title
+            if (previewTitle) {
+                previewTitle.textContent = name;
+
+                const bgEnabled = document.getElementById('titleBgEnabledInput').checked;
+                const bgColor = document.getElementById('titleBgColorInput').value || '#ffffff';
+                const bgOpacity = parseInt(document.getElementById('titleBgOpacityInput').value || 80) / 100;
+                const textLight = document.getElementById('titleTextLightInput').value || '#1e293b';
+                const textDark = document.getElementById('titleTextDarkInput').value || '#e2e8f0';
+
+                // Admin page is always light mode by default unless we implement dark mode toggle there, 
+                // but let's emulate what the user will see in their current system's mode.
+                const isDarkMode = document.body.classList.contains('dark-mode');
+
+                if (bgEnabled) {
+                    previewTitle.style.background = `rgba(${parseInt(bgColor.slice(1, 3), 16)}, ${parseInt(bgColor.slice(3, 5), 16)}, ${parseInt(bgColor.slice(5, 7), 16)}, ${bgOpacity})`;
+                    previewTitle.style.backdropFilter = "blur(4px)";
+                    previewTitle.style.border = "1px solid var(--card-border)";
+                    previewTitle.style.padding = "4px 12px";
+                    previewTitle.style.boxShadow = "0 4px 10px rgba(0,0,0,0.05)";
+                } else {
+                    previewTitle.style.background = "transparent";
+                    previewTitle.style.backdropFilter = "none";
+                    previewTitle.style.border = "none";
+                    previewTitle.style.boxShadow = "none";
+                }
+
+                previewTitle.style.color = isDarkMode ? textDark : textLight;
             }
 
             // Update back color
@@ -475,9 +833,15 @@
             }
 
             if (tags.length > 0) {
+                const tagBg = document.getElementById('tagBgColorInput').value || '#0f172a';
+                const tagOpacity = parseInt(document.getElementById('tagOpacityInput').value || 80) / 100;
+                const tagPos = document.getElementById('tagPositionInput').value || 'top-right';
+
                 tagsContainer = document.createElement('div');
-                tagsContainer.className = 'tags-container';
-                tagsContainer.innerHTML = tags.map(t => `<span class="tag-badge preview-badge">${t}</span>`).join('');
+                tagsContainer.className = `tags-container tags-${tagPos}`;
+
+                const styleString = `background: ${tagBg}; opacity: ${tagOpacity};`;
+                tagsContainer.innerHTML = tags.map(t => `<span class="tag-badge preview-badge" style="${styleString}">${t}</span>`).join('');
                 previewFront.appendChild(tagsContainer);
             }
         }
@@ -504,11 +868,21 @@
             const id = btn.dataset.id;
             const name = btn.dataset.name;
             const tags = JSON.parse(btn.dataset.tags || '[]');
+            const tagBgColor = btn.dataset.tagBgColor || '#0f172a';
+            const tagOpacity = btn.dataset.tagOpacity || '80';
+            const tagPosition = btn.dataset.tagPosition || 'top-right';
             const color = btn.dataset.color;
             const image = btn.dataset.image;
             const imageMode = btn.dataset.imageMode || 'fill';
             const frontColor = btn.dataset.frontColor || '#11161F';
             const imageSize = btn.dataset.imageSize || '80';
+
+            const titleBgEnabled = btn.dataset.titleBgEnabled === 'true';
+            const titleBgColor = btn.dataset.titleBgColor || '#ffffff';
+            const titleBgOpacity = btn.dataset.titleBgOpacity || '80';
+            const titleTextLight = btn.dataset.titleTextLight || '#1e293b';
+            const titleTextDark = btn.dataset.titleTextDark || '#e2e8f0';
+
             const links = JSON.parse(btn.dataset.links);
             const pages = JSON.parse(btn.dataset.pages);
 
@@ -523,12 +897,23 @@
 
             document.getElementById('nameInput').value = name;
             document.getElementById('tagInput').value = tags.join(', ');
+            document.getElementById('tagBgColorInput').value = tagBgColor;
+            document.getElementById('tagOpacityInput').value = tagOpacity;
+            document.getElementById('tagPositionInput').value = tagPosition;
             document.getElementById('colorInput').value = color;
             document.getElementById('imageModeInput').value = imageMode;
             document.getElementById('frontColorInput').value = frontColor;
             document.getElementById('imageSizeInput').value = imageSize;
             document.getElementById('imageSizeValue').textContent = imageSize;
+
+            document.getElementById('titleBgEnabledInput').checked = titleBgEnabled;
+            document.getElementById('titleBgColorInput').value = titleBgColor;
+            document.getElementById('titleBgOpacityInput').value = titleBgOpacity;
+            document.getElementById('titleTextLightInput').value = titleTextLight;
+            document.getElementById('titleTextDarkInput').value = titleTextDark;
+
             toggleFrontColor();
+            toggleTitleBgInputs();
 
             // Set page checkboxes
             document.querySelectorAll('#pagesCheckboxes input[type="checkbox"]').forEach(cb => {
@@ -568,6 +953,7 @@
             updatePreview();
         }
 
+        const defaultStyle = JSON.parse('{{ settings.get("default_card_style", {}) | tojson | safe }}');
         function cancelEdit() {
             document.getElementById('formTitle').innerText = 'Add New Card';
             document.getElementById('submitBtn').innerText = 'Add Card';
@@ -589,11 +975,25 @@
             document.getElementById('pasteArea').innerText = "Click here and Paste (Ctrl+V) an image, or Drag & Drop";
 
             // Reset image mode and front color
-            document.getElementById('imageModeInput').value = 'fill';
-            document.getElementById('frontColorInput').value = '#11161F';
-            document.getElementById('imageSizeInput').value = '80';
-            document.getElementById('imageSizeValue').textContent = '80';
+            document.getElementById('imageModeInput').value = defaultStyle.image_mode || 'fill';
+            document.getElementById('frontColorInput').value = defaultStyle.front_color || '#11161F';
+            document.getElementById('imageSizeInput').value = typeof defaultStyle.image_size !== 'undefined' ? defaultStyle.image_size : '80';
+            document.getElementById('imageSizeValue').textContent = typeof defaultStyle.image_size !== 'undefined' ? defaultStyle.image_size : '80';
+
+            // Reset tag customizations
+            document.getElementById('tagBgColorInput').value = defaultStyle.tag_bg_color || '#0f172a';
+            document.getElementById('tagOpacityInput').value = typeof defaultStyle.tag_opacity !== 'undefined' ? defaultStyle.tag_opacity : '80';
+            document.getElementById('tagPositionInput').value = defaultStyle.tag_position || 'top-right';
+
+            // Reset title customizations
+            document.getElementById('titleBgEnabledInput').checked = defaultStyle.title_bg_enabled !== undefined ? defaultStyle.title_bg_enabled : true;
+            document.getElementById('titleBgColorInput').value = defaultStyle.title_bg_color || '#ffffff';
+            document.getElementById('titleBgOpacityInput').value = typeof defaultStyle.title_bg_opacity !== 'undefined' ? defaultStyle.title_bg_opacity : '80';
+            document.getElementById('titleTextLightInput').value = defaultStyle.title_text_light || '#1e293b';
+            document.getElementById('titleTextDarkInput').value = defaultStyle.title_text_dark || '#e2e8f0';
+
             toggleFrontColor();
+            toggleTitleBgInputs();
 
             // Reset preview card
             document.getElementById('previewImage').src = '/static/generic.png';
@@ -603,10 +1003,16 @@
         }
 
         // ========== FILTER & PAGINATION ==========
-        const ITEMS_PER_PAGE = 10;
+        let ITEMS_PER_PAGE = 5;
         let currentPage = 1;
         let allRows = [];
         let filteredRows = [];
+
+        function changeItemsPerPage(val) {
+            ITEMS_PER_PAGE = parseInt(val);
+            currentPage = 1;
+            renderPage();
+        }
 
         function initPagination() {
             allRows = Array.from(document.querySelectorAll('.card-row'));
@@ -727,6 +1133,7 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             bindEvents();
+            cancelEdit(); // apply default stylings directly to the New Card form
 
             // Init filter
             const filterInput = document.getElementById('cardFilter');
@@ -736,7 +1143,23 @@
 
             // Restore page from URL hash if present
             const hash = window.location.hash;
-            if (hash && hash.startsWith('#page=')) {
+            if (hash && hash.startsWith('#edit-')) {
+                const editId = hash.replace('#edit-', '');
+                const editBtn = document.querySelector(`.edit-btn[data-id="${editId}"]`);
+                if (editBtn) {
+                    // Navigate pagination to show this card's row
+                    const row = editBtn.closest('.card-row');
+                    if (row) {
+                        const rowIndex = filteredRows.indexOf(row);
+                        if (rowIndex >= 0) {
+                            currentPage = Math.floor(rowIndex / ITEMS_PER_PAGE) + 1;
+                            renderPage();
+                        }
+                    }
+                    // Trigger edit
+                    setTimeout(() => editSystem(editBtn), 100);
+                }
+            } else if (hash && hash.startsWith('#page=')) {
                 const pageNum = parseInt(hash.replace('#page=', ''));
                 if (!isNaN(pageNum) && pageNum > 0) {
                     currentPage = pageNum;
@@ -806,6 +1229,32 @@
                 document.getElementById('previewImage').src = dataUrl;
             };
             reader.readAsDataURL(blob);
+        }
+
+        function toggleDarkMode() {
+            const isDark = document.body.classList.toggle('dark-mode');
+            localStorage.setItem('darkMode', isDark);
+            updateDarkIcon(isDark);
+            updatePreview(); // Re-render preview card to reflect dark mode
+        }
+
+        function submitBulkStyle(action) {
+            if (action === 'all' && !confirm('Are you sure? This will overwrite the styling for ALL existing cards with the current settings shown on the left.')) return;
+
+            const form = document.getElementById('systemForm');
+            const oldAction = form.action;
+            form.action = '/admin/bulk_style';
+
+            let bulkInput = document.getElementById('bulkActionInput');
+            if (!bulkInput) {
+                bulkInput = document.createElement('input');
+                bulkInput.type = 'hidden';
+                bulkInput.name = 'bulk_action';
+                bulkInput.id = 'bulkActionInput';
+                form.appendChild(bulkInput);
+            }
+            bulkInput.value = action;
+            form.submit();
         }
     </script>
 </body>

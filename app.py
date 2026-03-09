@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, send_from_directory
+from flask import Flask, render_template, request, redirect, url_for, send_from_directory, jsonify
 from flasgger import Swagger
 import json
 import os
@@ -85,10 +85,21 @@ def index():
         settings['search_placeholder'] = "Google Search"
     if 'search_width' not in settings:
         settings['search_width'] = "300"
+    if 'ticker_symbols' not in settings:
+        settings['ticker_symbols'] = "AAPL, MSFT, TSLA, SPY, QQQ"
+    if 'ticker_enabled' not in settings:
+        settings['ticker_enabled'] = False
+    if 'footer_enabled' not in settings:
+        settings['footer_enabled'] = True
 
     
-    # Filter systems by page
-    filtered = [s for s in systems if page_id in s.get('pages', ['default'])]
+    # Filter systems by page, keeping original indices
+    filtered = []
+    for i, s in enumerate(systems):
+        if page_id in s.get('pages', ['default']):
+            s_copy = dict(s)
+            s_copy['_index'] = i
+            filtered.append(s_copy)
     
     current_page = next((p for p in pages if p['id'] == page_id), {'id': 'default', 'name': 'Home'})
     
@@ -112,6 +123,12 @@ def admin():
         settings['search_placeholder'] = "Google Search"
     if 'search_width' not in settings:
         settings['search_width'] = "300"
+    if 'ticker_symbols' not in settings:
+        settings['ticker_symbols'] = "AAPL, MSFT, TSLA, SPY, QQQ"
+    if 'ticker_enabled' not in settings:
+        settings['ticker_enabled'] = False
+    if 'footer_enabled' not in settings:
+        settings['footer_enabled'] = True
 
     presets = sorted(load_presets(), key=lambda x: x['name'].lower())
     return render_template('admin.html', pages=data.get('pages', []), systems=data.get('systems', []), settings=settings, presets=presets)
@@ -149,15 +166,87 @@ def update_settings():
     search_placeholder = request.form.get('search_placeholder', '').strip()
     search_width = request.form.get('search_width', '').strip()
     footer_text = request.form.get('footer_text', current_settings.get('footer_text', 'Made with Love by DevOps Team'))
+    footer_enabled = request.form.get('footer_enabled') == 'on'
+    cards_per_row = request.form.get('cards_per_row', current_settings.get('cards_per_row', '0'))
+    ticker_enabled = request.form.get('ticker_enabled') == 'on'
+    ticker_symbols = request.form.get('ticker_symbols', 'AAPL, MSFT, TSLA, SPY, QQQ')
+    try:
+        cards_per_row = int(cards_per_row)
+        if cards_per_row < 0 or cards_per_row > 10:
+            cards_per_row = 0
+    except (ValueError, TypeError):
+        cards_per_row = 0
     data['settings'] = {
         'search_enabled': search_enabled,
         'search_base_url': search_base_url,
         'search_placeholder': search_placeholder,
         'search_width': search_width,
-        'footer_text': footer_text
+        'footer_enabled': footer_enabled,
+        'footer_text': footer_text,
+        'cards_per_row': cards_per_row,
+        'ticker_enabled': ticker_enabled,
+        'ticker_symbols': ticker_symbols,
+        'default_card_style': current_settings.get('default_card_style', {})
     }
     save_data(data)
     return redirect(url_for('admin'))
+
+@app.route('/admin/bulk_style', methods=['POST'])
+def bulk_style():
+    """ Apply styling either to global defaults or to all current cards """
+    data = load_data()
+    action = request.form.get('bulk_action', 'defaults')
+    
+    style = {
+        'tag_bg_color': request.form.get('tag_bg_color'),
+        'tag_opacity': int(request.form.get('tag_opacity', '80')),
+        'tag_position': request.form.get('tag_position'),
+        'title_bg_enabled': request.form.get('title_bg_enabled') == 'on',
+        'title_bg_color': request.form.get('title_bg_color'),
+        'title_bg_opacity': int(request.form.get('title_bg_opacity', '80')),
+        'title_text_light': request.form.get('title_text_light'),
+        'title_text_dark': request.form.get('title_text_dark'),
+        'back_color': request.form.get('back_color'),
+        'image_mode': request.form.get('image_mode'),
+        'front_color': request.form.get('front_color'),
+        'image_size': request.form.get('image_size', '80'),
+    }
+    
+    if action == 'defaults':
+        if 'settings' not in data:
+            data['settings'] = {}
+        data['settings']['default_card_style'] = style
+    elif action == 'all':
+        for system in data.get('systems', []):
+            system.update({k: v for k,v in style.items() if v is not None})
+            
+    save_data(data)
+    return redirect(url_for('admin'))
+
+@app.route('/api/reorder', methods=['POST'])
+def reorder():
+    """
+    Reorder elements using their original indices.
+    """
+    try:
+        req_data = request.get_json()
+        new_order = req_data.get('order', [])
+        
+        data = load_data()
+        systems = data.get('systems', [])
+        
+        if new_order:
+            target_indices = sorted(new_order)
+            systems_copy = list(systems)
+            
+            for target_idx, orig_idx in zip(target_indices, new_order):
+                systems[target_idx] = systems_copy[int(orig_idx)]
+                
+            save_data(data)
+            
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 400
 
 # ========== PAGE MANAGEMENT ==========
 @app.route('/admin/pages/add', methods=['POST'])
@@ -263,6 +352,15 @@ def add_system():
     image_mode = request.form.get('image_mode', 'fill')
     front_color = request.form.get('front_color', '#11161F')
     image_size = request.form.get('image_size', '80')
+    tag_bg_color = request.form.get('tag_bg_color', '#0f172a')
+    tag_opacity = request.form.get('tag_opacity', '80')
+    tag_position = request.form.get('tag_position', 'top-right')
+    
+    title_bg_enabled = request.form.get('title_bg_enabled') == 'on'
+    title_bg_color = request.form.get('title_bg_color', '#ffffff')
+    title_bg_opacity = request.form.get('title_bg_opacity', '80')
+    title_text_light = request.form.get('title_text_light', '#1e293b')
+    title_text_dark = request.form.get('title_text_dark', '#e2e8f0')
     link_texts = request.form.getlist('link_text[]')
     link_urls = request.form.getlist('link_url[]')
     assigned_pages = request.form.getlist('assigned_pages[]')
@@ -300,6 +398,14 @@ def add_system():
     data['systems'].append({
         'name': name,
         'tags': tags,
+        'tag_bg_color': tag_bg_color,
+        'tag_opacity': int(tag_opacity) if tag_opacity.isdigit() else 80,
+        'tag_position': tag_position,
+        'title_bg_enabled': title_bg_enabled,
+        'title_bg_color': title_bg_color,
+        'title_bg_opacity': int(title_bg_opacity) if title_bg_opacity.isdigit() else 80,
+        'title_text_light': title_text_light,
+        'title_text_dark': title_text_dark,
         'image': image_filename,
         'image_mode': image_mode,
         'image_size': image_size,
@@ -367,6 +473,15 @@ def update_system(id):
         image_mode = request.form.get('image_mode', 'fill')
         front_color = request.form.get('front_color', '#11161F')
         image_size = request.form.get('image_size', '80')
+        tag_bg_color = request.form.get('tag_bg_color', '#0f172a')
+        tag_opacity = request.form.get('tag_opacity', '80')
+        tag_position = request.form.get('tag_position', 'top-right')
+        
+        title_bg_enabled = request.form.get('title_bg_enabled') == 'on'
+        title_bg_color = request.form.get('title_bg_color', '#ffffff')
+        title_bg_opacity = request.form.get('title_bg_opacity', '80')
+        title_text_light = request.form.get('title_text_light', '#1e293b')
+        title_text_dark = request.form.get('title_text_dark', '#e2e8f0')
         link_texts = request.form.getlist('link_text[]')
         link_urls = request.form.getlist('link_url[]')
         assigned_pages = request.form.getlist('assigned_pages[]')
@@ -405,6 +520,14 @@ def update_system(id):
         system_data = {
             'name': name,
             'tags': tags,
+            'tag_bg_color': tag_bg_color,
+            'tag_opacity': int(tag_opacity) if tag_opacity.isdigit() else 80,
+            'tag_position': tag_position,
+            'title_bg_enabled': title_bg_enabled,
+            'title_bg_color': title_bg_color,
+            'title_bg_opacity': int(title_bg_opacity) if title_bg_opacity.isdigit() else 80,
+            'title_text_light': title_text_light,
+            'title_text_dark': title_text_dark,
             'image': image_filename,
             'image_mode': image_mode,
             'image_size': image_size,
@@ -416,6 +539,11 @@ def update_system(id):
         systems[id] = system_data
         
         save_data(data)
+        
+        return_url = request.form.get('return_url')
+        if return_url:
+            separator = '&' if '?' in return_url else '?'
+            return redirect(f"{return_url}{separator}edit=1")
     return redirect(url_for('admin'))
 
 @app.route('/admin/delete/<int:id>', methods=['POST'])
@@ -483,6 +611,34 @@ def move_system_to(from_index, to_index):
             
     return redirect(url_for('admin'))
 
+@app.route('/api/reorder', methods=['POST'])
+def api_reorder():
+    """
+    Reorder systems via JSON API (used by homepage drag-and-drop)
+    ---
+    parameters:
+      - name: body
+        in: body
+        schema:
+          type: object
+          properties:
+            order:
+              type: array
+              items: {type: integer}
+    responses:
+      200:
+        description: Success
+    """
+    from flask import jsonify
+    data = load_data()
+    systems = data.get('systems', [])
+    order = request.get_json(force=True).get('order', [])
+    
+    if len(order) == len(systems) and sorted(order) == list(range(len(systems))):
+        data['systems'] = [systems[i] for i in order]
+        save_data(data)
+        return jsonify({'ok': True})
+    return jsonify({'ok': False, 'error': 'Invalid order'}), 400
 @app.route('/admin/pages/move/<direction>/<page_id>', methods=['POST'])
 def move_page_route(direction, page_id):
     data = load_data()
@@ -545,4 +701,5 @@ def uploaded_file(filename):
     return send_from_directory(UPLOAD_FOLDER, filename)
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0')
+    port = int(os.environ.get('PORT', 8585))
+    app.run(debug=True, host='0.0.0.0', port=port)
